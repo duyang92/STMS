@@ -1,9 +1,12 @@
 #include <iostream>
+#include <cstring>
+#include <fstream>
+#include <math.h>
 #include <stdint.h>
+#include <time.h>
 #include <unordered_set>
 #include <unordered_map>
 #include <vector>
-#include <fstream>
 #include <algorithm>
 #include "MurmurHash3.h"
 using namespace std;
@@ -49,7 +52,6 @@ public:
 			delete[]myWordArray;
 		}
 	}
-	// return true: the element has been recorded before this insertion
 	bool insert(uint64_t* hashValue) {
 
 		//use the 32th bit as the status (count from the left)
@@ -109,7 +111,6 @@ public:
 	STMS(unsigned int bitsNum, unsigned int hashNum, double samplingRatio) :myDF(bitsNum / sizeof(WORD_TYPE), hashNum) {
 		p = samplingRatio;
 	}
-	
 	void sampleFlowElements(char* flowId, char* eleId) {
 		char key[KEY_SIZE];
 		for (int i = 0; i < KEY_SIZE; i++) {
@@ -122,10 +123,11 @@ public:
 		//since sampling ratio will not be too small, 31 bits is enough for pre-sampling
 		if ((unsigned int)(hashValue[0] >> 33) < (this->p * INT32_MAX)) {
 			bool hasRecordedFlag = this->myDF.insert(hashValue);//flag==true means STM_DF has recorded this key, and we should not send the element to off-chip
-
-			if (!hasRecordedFlag) {
-				this->recordingInfo[flowId].insert(eleId);
-			}
+			
+			//simulate send recording infomation to off-chip
+			//if (!hasRecordedFlag) {
+			//	this->recordingInfo[flowId].insert(eleId);
+			//}
 		}
 	}
 
@@ -181,9 +183,9 @@ void processPackets(STMS& stms, vector<pair<char*, char*>>& dataset) {
 	}
 
 	clock_t current = clock();
-	cout << dataset.size() << " lines: have used " << ((double)current - start) / 1000.0 << " seconds" << endl;
+	cout << dataset.size() << " lines: have used " << ((double)current - start) / CLOCKS_PER_SEC << " seconds" << endl;
 
-	double throughput = (dataset.size() / 1000000.0) / (((double)current - start) / 1000.0);
+	double throughput = (dataset.size() / 1000000.0) / (((double)current - start) / CLOCKS_PER_SEC);
 	cout << "throughput: " << throughput << "Mpps" << endl;
 }
 
@@ -199,15 +201,16 @@ double getPe(double p1, unsigned int k, unsigned int m, double tau, double c) {
 
 //save the data in memory and count the real flow info
 void getDataSet(string dataDir, unsigned int numOfMinutes, vector<pair<char*, char*>>& dataset, unordered_map<char*, unordered_set<char*, HashFunc, Cmp>, HashFunc, Cmp>& realFlowInfo) {
+
 	char dataFileName[20];
-	ifstream fin;
 	char* flowId;
 	char* eleId;
+
 	clock_t start = clock();
 	for (unsigned int i = 0; i < numOfMinutes; i++) {
-		sprintf_s(dataFileName, "%02d.dat", i);
+		sprintf(dataFileName, "%02d.dat", i);
 		string oneDataFilePath = dataDir + string(dataFileName);
-		fin.open(oneDataFilePath, ios::in | ios::binary);
+		fstream fin(oneDataFilePath, ios::in | ios::binary);
 
 		while (fin.is_open() && fin.peek() != EOF) {
 			flowId = new char[KEY_SIZE] {0};
@@ -221,12 +224,12 @@ void getDataSet(string dataDir, unsigned int numOfMinutes, vector<pair<char*, ch
 
 			if (dataset.size() % 5000000 == 0) {//output someting to check the procedure
 				clock_t current = clock();
-				cout << "have added " << dataset.size() << " packets, have used " << ((double)current - start) / 1000.0 << " seconds." << endl;
+				cout << "have added " << dataset.size() << " packets, have used " << ((double)current - start) / CLOCKS_PER_SEC << " seconds." << endl;
 			}
 		}
 
 		if (!fin.is_open()) {
-			cout << "dataset file" << dataFileName << "closed unexpectedlly";
+			cout << "dataset file" << dataFileName << "closed unexpectedlly"<<endl;
 			exit(-1);
 		}
 		else {
@@ -235,7 +238,7 @@ void getDataSet(string dataDir, unsigned int numOfMinutes, vector<pair<char*, ch
 	}
 
 	clock_t current = clock();
-	cout << "have added " << dataset.size() << " packets, have used " << ((double)current - start) / 1000.0 << " seconds" << endl;
+	cout << "have added " << dataset.size() << " packets, have used " << ((double)current - start) / CLOCKS_PER_SEC << " seconds" << endl;
 
 	//count the totol number of flows and distinct elements
 	auto iter = realFlowInfo.begin();
@@ -251,7 +254,7 @@ int main()
 {
 	//prepare the dataset
 	cout << "prepare the dataset" << endl;
-	string dataDir = R"(G:\networkTrafficData\2016\processed_binary\)";
+	string dataDir = R"(./)";
 	unsigned int numOfMinutes = 1;
 	vector<pair<char*, char*>> dataset;
 	unordered_map<char*, unordered_set<char*, HashFunc, Cmp>, HashFunc, Cmp> realFlowInfo;

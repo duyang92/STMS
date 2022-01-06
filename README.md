@@ -8,7 +8,10 @@ Nevertheless, their on-chip data structures record massive transient elements, e
 
 ## About this repo
 ### CPU
-STMS is implemented on CPU, the code is compiled by Microsoft Visual Studio Community 2019 on Win10. To achieve a higher throughput, please turn on the O2 optimization option while compiling.
+STMS is implemented on CPU, the code is compiled using gcc version 7.5.0 (Ubuntu 7.5.0-3ubuntu1~18.04). To achieve a higher throughput, please turn on the O2 optimization option while compiling. The compiling command is as follows.
+```shell
+g++ STMS.cpp MurmurHash3.cpp -O2 -m64
+```
 
 ### FPGA
 STMS is implemented on FPGA.
